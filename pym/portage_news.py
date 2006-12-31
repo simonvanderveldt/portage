@@ -3,7 +3,7 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Id$
 
-from portage_const import PRIVATE_PATH, INCREMENTALS
+from portage_const import PRIVATE_PATH, INCREMENTALS, PROFILE_PATH
 from portage import config
 
 import os, re
@@ -29,8 +29,11 @@ class NewsManager(object):
 		self.TIMESTAMP_PATH = os.path.join( root, PRIVATE_PATH, NewsManager.TIMESTAMP_FILE )
 		self.target_root = root
 
-		self.config = portage.config( config_root=os.environ.get("PORTAGE_CONFIGROOT", "/"),
-				target_root = root, incrementals=INCREMENTALS)
+		self.config = portage.config( config_root = os.environ.get("PORTAGE_CONFIGROOT", "/"),
+				target_root = root, incrementals = INCREMENTALS)
+		self.vdb = portage.vardbapi( settings = self.config, root = root,
+			vartree = portage.vartree( root = root, settings = self.config ) )
+		self.portdb = portage.portdbapi( porttree_root = root, mysettings = self.config )
 
 	def updateNewsItems( self, repoid ):
 		"""
@@ -39,9 +42,12 @@ class NewsManager(object):
 		items into the news.repoid.unread file.
 		"""
 		
-		timestamp = os.stat(self.TIMESTAMP_PATH).st_mtime
+		repos = self.portdb.getRepositories()
+		if repoid not in repos:
+			raise ValueError("Invalid repoID: %s" % repoid)
 
-		path = os.path.join( self.config.repos[repoid], self.NEWS_PATH )
+		timestamp = os.stat(self.TIMESTAMP_PATH).st_mtime
+		path = os.path.join( repoid, self.NEWS_PATH )
 		news = os.listdir( path )
 		updates = []
 		for item in news:
@@ -50,11 +56,14 @@ class NewsManager(object):
 			except ValueError:
 				continue
 
-			if tmp.isRelevant( profile=config, keywords=config, vdb=):
+			if tmp.isRelevant( profile=os.readlink(PROFILE_PATH), keywords=config, vdb=self.vdb):
 				updates.append( tmp )
 		
+		unread_file = open( os.path.join( UNREAD_PATH, "news."+ repoid +".unread" ), "a" )
 		for item in updates:
-			
+			unread_file.write( item.path + "\n" )
+
+		close(unread_file)
 
 	def getUnreadItems( self, repoid, update=False ):
 		"""
@@ -101,7 +110,7 @@ class NewsItem(object):
 			raise ValueError
 		self.path = path
 
-	def isRelevant( self, **kwargs ):
+	def isRelevant( self, vardb, config, profile ):
 		"""
 		This function takes a dict of keyword arguments; one should pass in any
 		objects need to do to lookups (like what keywords we are on, what profile,
@@ -113,8 +122,12 @@ class NewsItem(object):
 		if not len(self.restrictions):
 			return True # no restrictions to match means everyone should see it
 		
+		kwargs = { 'vardb' : vardb,
+			   'config' : config,
+			   'profile' : profile }
+
 		for restriction in self.restrictions:
-			if restriction.checkRestriction( **kwargs ):
+			if restriction.checkRestriction( kwargs ):
 				return True
 			
 		return False # No restrictions were met; thus we aren't relevant :(
@@ -146,9 +159,7 @@ class NewsItem(object):
 	def __getattr__( self, attr ):
 		if attr == "restrictions" and not self.restrictions:
 			self.parse()
-			return self.restrictions
-		else:
-			return self.restrictions
+		return self.restrictions
 
 class DisplayRestriction(object):
 	"""
@@ -172,7 +183,9 @@ class DisplayProfileRestriction(DisplayRestriction):
 		self.profile = profile
 
 	def checkRestriction( self, **kwargs ):
-		return True
+		if self.profile == kwargs['profile']:
+			return True
+		return False
 
 class DisplayKeywordRestriction(DisplayRestriction):
 	"""
@@ -184,11 +197,13 @@ class DisplayKeywordRestriction(DisplayRestriction):
 		self.keyword = keyword
 
 	def checkRestriction( self, **kwargs ):
-		return True
+		if kwargs['config']["ARCH"] == self.keyword:
+			return True
+		return False
 
 class DisplayInstalledRestriction(DisplayRestriction):
 	"""
-	An Installation rsetriction where a particular item shall only be displayed
+	An Installation restriction where a particular item shall only be displayed
 	if the user has that item installed.
 	"""
 	
@@ -196,4 +211,7 @@ class DisplayInstalledRestriction(DisplayRestriction):
 		self.cpv = cpv
 
 	def checkRestriction( self, **kwargs ):
-		return True
+		vdb = kwargs['vardb']
+		if vdb.match( cpv ):
+			return True
+		return False
