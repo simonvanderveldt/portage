@@ -15,7 +15,7 @@ class NewsManager(object):
 	items that apply to their packages that the user has not previously read.
 	
 	Creating a news manager requires:
-	root - the value of /, can be changed via $ROOT in the environment.
+	root - typically ${ROOT} see man make.conf and man emerge for details
 	NEWS_PATH - path to news items; usually $REPODIR/metadata/news
 	UNREAD_PATH - path to the news.repoid.unread file; this helps us track news items
 	
@@ -109,6 +109,7 @@ class NewsItem(object):
 		if not os.stat( path ).st_mtime > cache_mtime:
 			raise ValueError
 		self.path = path
+		self._parsed = False
 
 	def isRelevant( self, vardb, config, profile ):
 		"""
@@ -155,11 +156,12 @@ class NewsItem(object):
 				self.restrictions.append(
 					DisplayKeywordRestriction( match.groups()[0] ) )
 				continue
+		self._parsed = True
 
 	def __getattr__( self, attr ):
-		if attr == "restrictions" and not self.restrictions:
+		if not self._parsed:
 			self.parse()
-		return self.restrictions
+		return self.__dict__[attr]
 
 class DisplayRestriction(object):
 	"""
