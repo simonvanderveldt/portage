@@ -3374,7 +3374,7 @@ def post_emerge(settings, mtimedb, retval):
 
 	chk_updated_cfg_files(target_root, config_protect)
 	
-	NEWS_PATH = os.path.join( metadata, news )
+	NEWS_PATH = os.path.join( 'metadata', 'news' )
 	UNREAD_PATH = os.path.join( PRIVATE_PATH, 'news')
 	repo_id = 'gentoo-x86'
 	unreadItems = checkUpdatedNewsItems(target_root, NEWS_PATH, UNREAD_PATH):

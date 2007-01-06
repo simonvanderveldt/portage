@@ -5,6 +5,8 @@
 
 from portage_const import PRIVATE_PATH, INCREMENTALS, PROFILE_PATH
 from portage import config
+from portage_util import ensure_dirs
+from portage_data import portage_gid
 
 import os, re
 
@@ -34,6 +36,13 @@ class NewsManager(object):
 		self.vdb = portage.vardbapi( settings = self.config, root = root,
 			vartree = portage.vartree( root = root, settings = self.config ) )
 		self.portdb = portage.portdbapi( porttree_root = root, mysettings = self.config )
+
+		# Ensure that the unread path exists and is writable.
+		dirmode  = 02070
+		filemode =   060
+		modemask =    02
+		ensure_dirs(UNREAD_PATH, dirmode=dirmode, filemode=filemode,modemask=modemask,
+			gid=portage_gid)
 
 	def updateNewsItems( self, repoid ):
 		"""
