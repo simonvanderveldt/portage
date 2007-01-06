@@ -23,12 +23,12 @@ class NewsManager(object):
 
 	TIMESTAMP_FILE = "news-timestamp"
 
-	def __init__( self, root, NEWS_PATH, UNREAD_PATH ):
+	def __init__( self, root, NEWS_PATH, UNREAD_PATH, LANGUAGE_ID='en' ):
 		self.NEWS_PATH = NEWS_PATH
 		self.UNREAD_PATH = UNREAD_PATH
 		self.TIMESTAMP_PATH = os.path.join( root, PRIVATE_PATH, NewsManager.TIMESTAMP_FILE )
 		self.target_root = root
-
+		self.LANGUAGE_ID = LANGUAGE_ID
 		self.config = portage.config( config_root = os.environ.get("PORTAGE_CONFIGROOT", "/"),
 				target_root = root, incrementals = INCREMENTALS)
 		self.vdb = portage.vardbapi( settings = self.config, root = root,
@@ -52,7 +52,7 @@ class NewsManager(object):
 		updates = []
 		for item in news:
 			try:
-				tmp = NewsItem( item, timestamp )				
+				tmp = NewsItem( os.path.join(item, item + '.' + LANGUAGE_ID + '.txt'), timestamp )
 			except ValueError:
 				continue
 
