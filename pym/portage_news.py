@@ -4,7 +4,7 @@
 # $Id$
 
 from portage_const import PRIVATE_PATH, INCREMENTALS, PROFILE_PATH
-from portage import config
+from portage import config, vartree, vardbapi, portdbapi
 from portage_util import ensure_dirs
 from portage_data import portage_gid
 
@@ -31,20 +31,19 @@ class NewsManager(object):
 		self.TIMESTAMP_PATH = os.path.join( root, PRIVATE_PATH, NewsManager.TIMESTAMP_FILE )
 		self.target_root = root
 		self.LANGUAGE_ID = LANGUAGE_ID
-		self.config = portage.config( config_root = os.environ.get("PORTAGE_CONFIGROOT", "/"),
-				target_root = root, incrementals = INCREMENTALS)
-		self.vdb = portage.vardbapi( settings = self.config, root = root,
-			vartree = portage.vartree( root = root, settings = self.config ) )
-		self.portdb = portage.portdbapi( porttree_root = root, mysettings = self.config )
+		self.config = config( config_root = os.environ.get("PORTAGE_CONFIGROOT", "/"),
+				target_root = root, config_incrementals = INCREMENTALS)
+		self.vdb = vardbapi( settings = self.config, root = root,
+			vartree = vartree( root = root, settings = self.config ) )
+		self.portdb = portdbapi( porttree_root = root, mysettings = self.config )
 
 		# Ensure that the unread path exists and is writable.
 		dirmode  = 02070
 		filemode =   060
 		modemask =    02
-		ensure_dirs(UNREAD_PATH, dirmode=dirmode, filemode=filemode,modemask=modemask,
-			gid=portage_gid)
+		ensure_dirs(self.UNREAD_PATH, mode=dirmode, mask=modemask, gid=portage_gid)
 
-	def updateNewsItems( self, repoid ):
+	def updateItems( self, repoid ):
 		"""
 		Figure out which news items from NEWS_PATH are both unread and relevant to
 		the user (according to the GLEP 42 standards of relevancy).  Then add these
@@ -61,8 +60,10 @@ class NewsManager(object):
 		updates = []
 		for item in news:
 			try:
-				tmp = NewsItem( os.path.join(item, item + '.' + LANGUAGE_ID + '.txt'), timestamp )
+				tmp = NewsItem( os.path.join(item, item + '.' + self.LANGUAGE_ID + '.txt'), timestamp )
 			except ValueError:
+				import pdb
+				pdb.set_trace()
 				continue
 
 			if tmp.isRelevant( profile=os.readlink(PROFILE_PATH), keywords=config, vdb=self.vdb):
@@ -83,9 +84,9 @@ class NewsManager(object):
 		"""
 		
 		if update:
-			self.updateNewsItems( repoid )
+			self.updateItems( repoid )
 
-		unreadfile = os.path.join( UNREAD_PATH, "news."+ repoid +".unread" )
+		unreadfile = os.path.join( self.UNREAD_PATH, "news."+ repoid +".unread" )
 
 		if os.path.exists( unreadfile ):
 			unread = open( unreadfile ).readlines()
