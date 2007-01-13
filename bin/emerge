@@ -3376,11 +3376,13 @@ def post_emerge(settings, mtimedb, retval):
 	
 	NEWS_PATH = os.path.join( "metadata", "news" )
 	UNREAD_PATH = os.path.join( portage.PRIVATE_PATH, 'news')
-	repo_id = 'gentoo-x86'
+	repo_id = 'gentoo'
 	unreadItems = checkUpdatedNewsItems(target_root, NEWS_PATH, UNREAD_PATH, repo_id)
 	if unreadItems:
-		print colorize("* IMPORTANT: %s news items need reading." % unreadItems)
-		print green("Type something to read the news")
+		print colorize("WARN", " * IMPORTANT:"),
+		print "%s news items need reading." % unreadItems
+		print colorize("WARN", " *"),
+		print "Type something to read the news"
 	mtimedb.commit()
 	sys.exit(retval)
 
@@ -3438,7 +3440,6 @@ def checkUpdatedNewsItems( root, NEWS_PATH, UNREAD_PATH, repo_id ):
 	
 	"""
 	from portage_news import NewsManager
-	
 	manager = NewsManager( root, NEWS_PATH, UNREAD_PATH )
 	return manager.getUnreadItems( repo_id, update=True )
 
