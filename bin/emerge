@@ -3375,7 +3375,7 @@ def post_emerge(settings, mtimedb, retval):
 	chk_updated_cfg_files(target_root, config_protect)
 	
 	NEWS_PATH = os.path.join( "metadata", "news" )
-	UNREAD_PATH = os.path.join( portage.PRIVATE_PATH, 'news')
+	UNREAD_PATH = os.path.join( root, portage.PRIVATE_PATH, 'news')
 	repo_id = 'gentoo'
 	unreadItems = checkUpdatedNewsItems(target_root, NEWS_PATH, UNREAD_PATH, repo_id)
 	if unreadItems:
