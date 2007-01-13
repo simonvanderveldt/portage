@@ -35,7 +35,7 @@ class NewsManager(object):
 				target_root = root, config_incrementals = INCREMENTALS)
 		self.vdb = vardbapi( settings = self.config, root = root,
 			vartree = vartree( root = root, settings = self.config ) )
-		self.portdb = portdbapi( porttree_root = root, mysettings = self.config )
+		self.portdb = portdbapi( porttree_root = self.config["PORTDIR"], mysettings = self.config )
 
 		# Ensure that the unread path exists and is writable.
 		dirmode  = 02070
@@ -49,31 +49,38 @@ class NewsManager(object):
 		the user (according to the GLEP 42 standards of relevancy).  Then add these
 		items into the news.repoid.unread file.
 		"""
-		
+
 		repos = self.portdb.getRepositories()
 		if repoid not in repos:
 			raise ValueError("Invalid repoID: %s" % repoid)
 
-		timestamp = os.stat(self.TIMESTAMP_PATH).st_mtime
-		path = os.path.join( repoid, self.NEWS_PATH )
+		if os.path.exists(self.TIMESTAMP_PATH):
+			timestamp = os.stat(self.TIMESTAMP_PATH).st_mtime
+		else:
+			timestamp = 0
+
+		path = os.path.join( self.portdb.getRepositoryPath( repoid ), self.NEWS_PATH )
 		news = os.listdir( path )
 		updates = []
 		for item in news:
 			try:
-				tmp = NewsItem( os.path.join(item, item + '.' + self.LANGUAGE_ID + '.txt'), timestamp )
-			except ValueError:
-				import pdb
-				pdb.set_trace()
+				file = os.path.join( path, item, item + "." + self.LANGUAGE_ID + ".txt")
+				tmp = NewsItem( file , timestamp )
+			except TypeError:
 				continue
 
-			if tmp.isRelevant( profile=os.readlink(PROFILE_PATH), keywords=config, vdb=self.vdb):
+			if tmp.isRelevant( profile=os.readlink(PROFILE_PATH), config=config, vardb=self.vdb):
 				updates.append( tmp )
 		
-		unread_file = open( os.path.join( UNREAD_PATH, "news."+ repoid +".unread" ), "a" )
+		unread_file = open( os.path.join( self.UNREAD_PATH, "news."+ repoid +".unread" ), "a" )
 		for item in updates:
 			unread_file.write( item.path + "\n" )
 
-		close(unread_file)
+		unread_file.close()
+		
+		# Touch the timestamp file
+		f = open(self.TIMESTAMP_PATH, "w")
+		f.close()
 
 	def getUnreadItems( self, repoid, update=False ):
 		"""
@@ -93,6 +100,11 @@ class NewsManager(object):
 			if len(unread):
 				return len(unread)
 
+
+_installedRE = re.compile("Display-If-Installed:(.*)\n")
+_profileRE = re.compile("Display-If-Profile:(.*)\n")
+_keywordRE = re.compile("Display-If-Keyword:(.*)\n")
+
 class NewsItem(object):
 	"""
 	This class encapsulates a GLEP 42 style news item.
@@ -105,19 +117,15 @@ class NewsItem(object):
 
 	"""
 	
-	installedRE = re.compile("Display-If-Installed:(.*)\n")
-	profileRE = re.compile("Display-If-Profile:(.*)\n")
-	keywordRE = re.compile("Display-If-Keyword:(.*)\n")
-
 	def __init__( self, path, cache_mtime = 0 ):
 		""" 
 		For a given news item we only want if it path is a file and it's 
 		mtime is newer than the cache'd timestamp.
 		"""
-		if not os.path.isFile( path ):
-			raise ValueError
+		if not os.path.isfile( path ):
+			raise TypeError
 		if not os.stat( path ).st_mtime > cache_mtime:
-			raise ValueError
+			raise TypeError
 		self.path = path
 		self._parsed = False
 
@@ -138,7 +146,7 @@ class NewsItem(object):
 			   'profile' : profile }
 
 		for restriction in self.restrictions:
-			if restriction.checkRestriction( kwargs ):
+			if restriction.checkRestriction( **kwargs ):
 				return True
 			
 		return False # No restrictions were met; thus we aren't relevant :(
@@ -151,20 +159,20 @@ class NewsItem(object):
 			#will never match
 			if not line.startswith("D"):
 				continue
-			match = installedRE.match( line )
+			match = _installedRE.match( line )
 			if match:
 				self.restrictions.append( 
-					DisplayInstalledRestriction( match.groups()[0] ) )
+					DisplayInstalledRestriction( match.groups()[0].strip().rstrip() ) )
 				continue
-			match = profileRE.match( line )
+			match = _profileRE.match( line )
 			if match:
 				self.restrictions.append(
-					DisplayProfileRestriction( match.groups()[0] ) )
+					DisplayProfileRestriction( match.groups()[0].strip().rstrip() ) )
 				continue
-			match = keywordRE.match( line )
+			match = _keywordRE.match( line )
 			if match:
 				self.restrictions.append(
-					DisplayKeywordRestriction( match.groups()[0] ) )
+					DisplayKeywordRestriction( match.groups()[0].strip().rstrip() ) )
 				continue
 		self._parsed = True
 
@@ -224,6 +232,6 @@ class DisplayInstalledRestriction(DisplayRestriction):
 
 	def checkRestriction( self, **kwargs ):
 		vdb = kwargs['vardb']
-		if vdb.match( cpv ):
+		if vdb.match( self.cpv ):
 			return True
 		return False
