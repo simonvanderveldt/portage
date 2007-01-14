@@ -72,7 +72,7 @@ class NewsManager(object):
 			if tmp.isRelevant( profile=os.readlink(PROFILE_PATH), config=config, vardb=self.vdb):
 				updates.append( tmp )
 		
-		unread_file = open( os.path.join( self.UNREAD_PATH, "news."+ repoid +".unread" ), "a" )
+		unread_file = open( os.path.join( self.UNREAD_PATH, "news-"+ repoid +".unread" ), "a" )
 		for item in updates:
 			unread_file.write( item.path + "\n" )
 
@@ -93,7 +93,7 @@ class NewsManager(object):
 		if update:
 			self.updateItems( repoid )
 
-		unreadfile = os.path.join( self.UNREAD_PATH, "news."+ repoid +".unread" )
+		unreadfile = os.path.join( self.UNREAD_PATH, "news-"+ repoid +".unread" )
 
 		if os.path.exists( unreadfile ):
 			unread = open( unreadfile ).readlines()
