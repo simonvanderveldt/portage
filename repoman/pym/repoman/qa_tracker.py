@@ -23,6 +23,8 @@ class QATracker(object):
 				'QATracker: Exiting on error. Unknown detected_qa type passed '
 				'in to add_error(): %s, %s' % (detected_qa, info))
 			sys.exit(1)
+		if detected_qa in ("dependency.bad", "ebuild.badheader"):
+			return
 		try:
 			self.fails[detected_qa].append(info)
 		except KeyError:
